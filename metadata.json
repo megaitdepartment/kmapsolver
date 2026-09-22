@@ -1,0 +1,6 @@
+{
+  "name": "K Maps Solver",
+  "description": "Karnaugh Map solver and diagram generator with step-by-step Quine-McCluskey simplification, wrap-around grouping, TikZ/LaTeX export, and printable exam worksheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
