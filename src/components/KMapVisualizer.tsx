@@ -111,31 +111,32 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
       const spansLeftRightWrap =
         numCols === 4 && cols.length === 2 && cols[0] === 0 && cols[1] === 3;
 
-      // Rule 2: 4 Corners Wrap (m0, m2, m8, m10) -> Curved corner arcs with border extensions
+      // Rule 2: 4 Corners Wrap (m0, m2, m8, m10) -> Clean corner open brackets matching image format
       if (spansTopBottomWrap && spansLeftRightWrap && rows.length === 2 && cols.length === 2) {
-        const EXT = 14;
-        const inset = 6;
-        const cornerArcRadius = 24;
+        const inset = Math.max(6, Math.round(CELL_SIZE * 0.14));
+        const cornerArcRadius = Math.max(12, Math.round(CELL_SIZE * 0.28));
 
-        // Top-Left (row 0, col 0)
         const x0 = subMapXOffset;
         const y0 = subMapYOffset;
-        const tlStroke = `M ${x0 + CELL_SIZE - inset} ${y0 - EXT} V ${y0 + 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x0 + 12} ${y0 + CELL_SIZE - inset} H ${x0 - EXT}`;
-        const tlFill = `M ${x0 + CELL_SIZE - inset} ${y0 - EXT} V ${y0 + 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x0 + 12} ${y0 + CELL_SIZE - inset} H ${x0 - EXT} V ${y0 - EXT} Z`;
-
-        // Top-Right (row 0, col 3)
         const x3 = subMapXOffset + 3 * CELL_SIZE;
-        const trStroke = `M ${x3 + inset} ${y0 - EXT} V ${y0 + 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x3 + CELL_SIZE - 12} ${y0 + CELL_SIZE - inset} H ${x3 + CELL_SIZE + EXT}`;
-        const trFill = `M ${x3 + inset} ${y0 - EXT} V ${y0 + 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x3 + CELL_SIZE - 12} ${y0 + CELL_SIZE - inset} H ${x3 + CELL_SIZE + EXT} V ${y0 - EXT} Z`;
-
-        // Bottom-Left (row 3, col 0)
         const y3 = subMapYOffset + 3 * CELL_SIZE;
-        const blStroke = `M ${x0 + CELL_SIZE - inset} ${y3 + CELL_SIZE + EXT} V ${y3 + CELL_SIZE - 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x0 + 12} ${y3 + inset} H ${x0 - EXT}`;
-        const blFill = `M ${x0 + CELL_SIZE - inset} ${y3 + CELL_SIZE + EXT} V ${y3 + CELL_SIZE - 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x0 + 12} ${y3 + inset} H ${x0 - EXT} V ${y3 + CELL_SIZE + EXT} Z`;
+        const w = CELL_SIZE;
 
-        // Bottom-Right (row 3, col 3)
-        const brStroke = `M ${x3 + inset} ${y3 + CELL_SIZE + EXT} V ${y3 + CELL_SIZE - 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x3 + CELL_SIZE - 12} ${y3 + inset} H ${x3 + CELL_SIZE + EXT}`;
-        const brFill = `M ${x3 + inset} ${y3 + CELL_SIZE + EXT} V ${y3 + CELL_SIZE - 12} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x3 + CELL_SIZE - 12} ${y3 + inset} H ${x3 + CELL_SIZE + EXT} V ${y3 + CELL_SIZE + EXT} Z`;
+        // Top-Left (row 0, col 0): starts at top border, goes down, curves smoothly left to left border
+        const tlStroke = `M ${x0 + w - inset} ${y0} V ${y0 + w - inset - cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x0 + w - inset - cornerArcRadius} ${y0 + w - inset} H ${x0}`;
+        const tlFill = `M ${x0 + w - inset} ${y0} V ${y0 + w - inset - cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x0 + w - inset - cornerArcRadius} ${y0 + w - inset} H ${x0} V ${y0} Z`;
+
+        // Top-Right (row 0, col 3): starts at top border, goes down, curves smoothly right to right border
+        const trStroke = `M ${x3 + inset} ${y0} V ${y0 + w - inset - cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x3 + inset + cornerArcRadius} ${y0 + w - inset} H ${x3 + w}`;
+        const trFill = `M ${x3 + inset} ${y0} V ${y0 + w - inset - cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x3 + inset + cornerArcRadius} ${y0 + w - inset} H ${x3 + w} V ${y0} Z`;
+
+        // Bottom-Left (row 3, col 0): starts at left border, goes right, curves smoothly down to bottom border
+        const blStroke = `M ${x0} ${y3 + inset} H ${x0 + w - inset - cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x0 + w - inset} ${y3 + inset + cornerArcRadius} V ${y3 + w}`;
+        const blFill = `M ${x0} ${y3 + inset} H ${x0 + w - inset - cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 1 ${x0 + w - inset} ${y3 + inset + cornerArcRadius} V ${y3 + w} H ${x0} Z`;
+
+        // Bottom-Right (row 3, col 3): starts at right border, goes left, curves smoothly down to bottom border
+        const brStroke = `M ${x3 + w} ${y3 + inset} H ${x3 + inset + cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x3 + inset} ${y3 + inset + cornerArcRadius} V ${y3 + w}`;
+        const brFill = `M ${x3 + w} ${y3 + inset} H ${x3 + inset + cornerArcRadius} A ${cornerArcRadius} ${cornerArcRadius} 0 0 0 ${x3 + inset} ${y3 + inset + cornerArcRadius} V ${y3 + w} H ${x3 + w} Z`;
 
         const cornerShapes = [
           { stroke: tlStroke, fill: tlFill },
@@ -154,6 +155,8 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
                   fill="none"
                   stroke={pi.borderColor}
                   strokeWidth={strokeWidth}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   strokeDasharray={pi.isEssential ? undefined : '5,3'}
                 />
               </g>
@@ -163,25 +166,24 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
         return;
       }
 
-      // Rule 3: Left-Right Wrap (open brackets extending past left and right borders)
+      // Rule 3: Left-Right Wrap (open brackets extending cleanly to left and right borders)
       if (spansLeftRightWrap) {
         const rowMin = Math.min(...rows);
         const rowMax = Math.max(...rows);
-        const EXT = 14;
-        const inset = 6;
-        const radius = 12;
+        const inset = Math.max(6, Math.round(CELL_SIZE * 0.14));
+        const radius = Math.max(10, Math.round(CELL_SIZE * 0.22));
 
         const topY = subMapYOffset + rowMin * CELL_SIZE + inset;
         const bottomY = subMapYOffset + (rowMax + 1) * CELL_SIZE - inset;
 
         // Left open bracket (column 0)
         const innerLeftX = subMapXOffset + CELL_SIZE - inset;
-        const leftStroke = `M ${subMapXOffset - EXT} ${topY} H ${innerLeftX - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX} ${topY + radius} V ${bottomY - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX - radius} ${bottomY} H ${subMapXOffset - EXT}`;
-        const leftFill = `M ${subMapXOffset - EXT} ${topY} H ${innerLeftX - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX} ${topY + radius} V ${bottomY - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX - radius} ${bottomY} H ${subMapXOffset - EXT} Z`;
+        const leftStroke = `M ${subMapXOffset} ${topY} H ${innerLeftX - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX} ${topY + radius} V ${bottomY - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX - radius} ${bottomY} H ${subMapXOffset}`;
+        const leftFill = `M ${subMapXOffset} ${topY} H ${innerLeftX - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX} ${topY + radius} V ${bottomY - radius} A ${radius} ${radius} 0 0 1 ${innerLeftX - radius} ${bottomY} H ${subMapXOffset} Z`;
 
         // Right open bracket (column 3)
         const innerRightX = subMapXOffset + 3 * CELL_SIZE + inset;
-        const outerRightX = subMapXOffset + 4 * CELL_SIZE + EXT;
+        const outerRightX = subMapXOffset + 4 * CELL_SIZE;
         const rightStroke = `M ${outerRightX} ${topY} H ${innerRightX + radius} A ${radius} ${radius} 0 0 0 ${innerRightX} ${topY + radius} V ${bottomY - radius} A ${radius} ${radius} 0 0 0 ${innerRightX + radius} ${bottomY} H ${outerRightX}`;
         const rightFill = `M ${outerRightX} ${topY} H ${innerRightX + radius} A ${radius} ${radius} 0 0 0 ${innerRightX} ${topY + radius} V ${bottomY - radius} A ${radius} ${radius} 0 0 0 ${innerRightX + radius} ${bottomY} H ${outerRightX} Z`;
 
@@ -194,6 +196,8 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
               fill="none"
               stroke={pi.borderColor}
               strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               strokeDasharray={pi.isEssential ? undefined : '5,3'}
             />
             {/* Right bracket */}
@@ -203,6 +207,8 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
               fill="none"
               stroke={pi.borderColor}
               strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               strokeDasharray={pi.isEssential ? undefined : '5,3'}
             />
           </g>
@@ -210,26 +216,25 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
         return;
       }
 
-      // Rule 4: Top-Bottom Wrap (open brackets extending past top and bottom borders)
+      // Rule 4: Top-Bottom Wrap (open brackets extending cleanly to top and bottom borders)
       if (spansTopBottomWrap) {
         const colMin = Math.min(...cols);
         const colMax = Math.max(...cols);
-        const EXT = 14;
-        const inset = 6;
-        const radius = 12;
+        const inset = Math.max(6, Math.round(CELL_SIZE * 0.14));
+        const radius = Math.max(10, Math.round(CELL_SIZE * 0.22));
 
         const leftX = subMapXOffset + colMin * CELL_SIZE + inset;
         const rightX = subMapXOffset + (colMax + 1) * CELL_SIZE - inset;
 
         // Top open bracket (row 0)
         const innerTopY = subMapYOffset + CELL_SIZE - inset;
-        const outerTopY = subMapYOffset - EXT;
+        const outerTopY = subMapYOffset;
         const topStroke = `M ${leftX} ${outerTopY} V ${innerTopY - radius} A ${radius} ${radius} 0 0 0 ${leftX + radius} ${innerTopY} H ${rightX - radius} A ${radius} ${radius} 0 0 0 ${rightX} ${innerTopY - radius} V ${outerTopY}`;
         const topFill = `M ${leftX} ${outerTopY} V ${innerTopY - radius} A ${radius} ${radius} 0 0 0 ${leftX + radius} ${innerTopY} H ${rightX - radius} A ${radius} ${radius} 0 0 0 ${rightX} ${innerTopY - radius} V ${outerTopY} Z`;
 
         // Bottom open bracket (row 3)
         const innerBottomY = subMapYOffset + 3 * CELL_SIZE + inset;
-        const outerBottomY = subMapYOffset + 4 * CELL_SIZE + EXT;
+        const outerBottomY = subMapYOffset + 4 * CELL_SIZE;
         const bottomStroke = `M ${leftX} ${outerBottomY} V ${innerBottomY + radius} A ${radius} ${radius} 0 0 1 ${leftX + radius} ${innerBottomY} H ${rightX - radius} A ${radius} ${radius} 0 0 1 ${rightX} ${innerBottomY + radius} V ${outerBottomY}`;
         const bottomFill = `M ${leftX} ${outerBottomY} V ${innerBottomY + radius} A ${radius} ${radius} 0 0 1 ${leftX + radius} ${innerBottomY} H ${rightX - radius} A ${radius} ${radius} 0 0 1 ${rightX} ${innerBottomY + radius} V ${outerBottomY} Z`;
 
@@ -242,6 +247,8 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
               fill="none"
               stroke={pi.borderColor}
               strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               strokeDasharray={pi.isEssential ? undefined : '5,3'}
             />
             {/* Bottom bracket */}
@@ -251,6 +258,8 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
               fill="none"
               stroke={pi.borderColor}
               strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               strokeDasharray={pi.isEssential ? undefined : '5,3'}
             />
           </g>
@@ -449,39 +458,29 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
 
                   {/* Diagonal Split Header for Variables in Upper Left Corner */}
                   <g>
-                    {/* Corner box background */}
-                    <rect
-                      x={subX - 52}
-                      y={subY - 32}
-                      width={52}
-                      height={32}
-                      fill="#f8fafc"
-                      stroke="#cbd5e1"
-                      strokeWidth={1}
-                      rx={2}
-                    />
                     {/* Diagonal Slash */}
                     <line
-                      x1={subX - 52}
+                      x1={subX - 44}
                       y1={subY - 32}
-                      x2={subX}
-                      y2={subY}
+                      x2={subX - 4}
+                      y2={subY + 2}
                       stroke="#94a3b8"
                       strokeWidth={1.5}
+                      strokeLinecap="round"
                     />
-                    {/* Column Variables (Top-Right of slash, e.g. DE) */}
+                    {/* Column Variables (Top-Right of slash, e.g. CD) */}
                     <text
-                      x={subX - 6}
-                      y={subY - 18}
+                      x={subX - 10}
+                      y={subY - 20}
                       textAnchor="end"
                       className="font-bold text-xs fill-indigo-700 font-mono select-none"
                     >
                       {struct.colVars.join('')}
                     </text>
-                    {/* Row Variables (Bottom-Left of slash, e.g. BC) */}
+                    {/* Row Variables (Bottom-Left of slash, e.g. AB) */}
                     <text
-                      x={subX - 46}
-                      y={subY - 8}
+                      x={subX - 38}
+                      y={subY - 4}
                       textAnchor="start"
                       className="font-bold text-xs fill-slate-700 font-mono select-none"
                     >
@@ -540,39 +539,40 @@ export const KMapVisualizer: React.FC<KMapVisualizerProps> = ({
                             y={cellY}
                             width={CELL_SIZE}
                             height={CELL_SIZE}
-                            fill={isOne ? '#f8fafc' : isX ? '#faf5ff' : '#ffffff'}
-                            stroke="#cbd5e1"
+                            fill={isOne ? '#ffffff' : isX ? '#faf5ff' : '#ffffff'}
+                            stroke="#e2e8f0"
                             strokeWidth={1}
-                            className="transition-colors group-hover:fill-indigo-50/70"
+                            rx={4}
+                            className="transition-colors group-hover:fill-indigo-50/50"
                           />
 
-                          {/* Cell Minterm Index Tag */}
-                          {showMintermIndices && (
-                            <text
-                              x={cellX + CELL_SIZE - 6}
-                              y={cellY + 14}
-                              textAnchor="end"
-                              className="font-mono text-[10px] fill-slate-400 select-none group-hover:fill-indigo-500 font-medium"
-                            >
-                              {m}
-                            </text>
-                          )}
-
-                          {/* Value Character (0, 1, or X) */}
+                          {/* Value Character (0, 1, or X) centered in upper/middle cell */}
                           <text
                             x={cellX + CELL_SIZE / 2}
-                            y={cellY + CELL_SIZE / 2 + 7}
+                            y={showMintermIndices ? cellY + CELL_SIZE / 2 - 1 : cellY + CELL_SIZE / 2 + 7}
                             textAnchor="middle"
                             className={`font-mono text-xl font-bold select-none transition-transform group-hover:scale-110 ${
                               isOne
-                                ? 'fill-slate-900 font-extrabold'
+                                ? 'fill-blue-600 font-extrabold'
                                 : isX
                                 ? 'fill-purple-600 font-bold'
-                                : 'fill-slate-300'
+                                : 'fill-slate-900 font-semibold'
                             }`}
                           >
                             {val}
                           </text>
+
+                          {/* Cell Minterm Index Tag placed underneath the value */}
+                          {showMintermIndices && (
+                            <text
+                              x={cellX + CELL_SIZE / 2}
+                              y={cellY + CELL_SIZE - 9}
+                              textAnchor="middle"
+                              className="font-mono text-[11px] fill-slate-400 select-none group-hover:fill-indigo-500 font-normal"
+                            >
+                              {m}
+                            </text>
+                          )}
                         </g>
                       );
                     })

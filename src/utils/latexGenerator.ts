@@ -96,11 +96,11 @@ export function generateTikzCode(
 
       // 4 Corners Wrap
       if (isTbWrap && isLrWrap && cellRows.length === 2 && cellCols.length === 2) {
-        code += `  % 4-Corner curved grouping\n`;
-        code += `  \\draw[${color}, thick, fill=${color}!12] (0.9, 4.15) arc (0:-90:0.75) -- (-0.15, 3.25) -- (-0.15, 4.15) -- cycle;\n`;
-        code += `  \\draw[${color}, thick, fill=${color}!12] (3.1, 4.15) arc (180:270:0.75) -- (4.15, 3.25) -- (4.15, 4.15) -- cycle;\n`;
-        code += `  \\draw[${color}, thick, fill=${color}!12] (0.9, -0.15) arc (0:90:0.75) -- (-0.15, 0.75) -- (-0.15, -0.15) -- cycle;\n`;
-        code += `  \\draw[${color}, thick, fill=${color}!12] (3.1, -0.15) arc (180:90:0.75) -- (4.15, 0.75) -- (4.15, -0.15) -- cycle;\n`;
+        code += `  % 4-Corner open corner grouping\n`;
+        code += `  \\draw[${color}, thick] (0.85, 4.0) -- (0.85, 3.4) arc (0:-90:0.25) -- (0.0, 3.15);\n`;
+        code += `  \\draw[${color}, thick] (3.15, 4.0) -- (3.15, 3.4) arc (180:270:0.25) -- (4.0, 3.15);\n`;
+        code += `  \\draw[${color}, thick] (0.0, 0.85) -- (0.6, 0.85) arc (90:0:0.25) -- (0.85, 0.0);\n`;
+        code += `  \\draw[${color}, thick] (4.0, 0.85) -- (3.4, 0.85) arc (90:180:0.25) -- (3.15, 0.0);\n`;
         return;
       }
 
