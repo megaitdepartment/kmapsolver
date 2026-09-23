@@ -832,14 +832,23 @@ export function parseBooleanInput(
   const trimmed = input.trim();
   const maxCells = 1 << varCount;
 
-  // Case 1A: Maxterm notation like M(0, 1, 3, 7) + d(2, 6) or Π M(0, 1, 3) or maxterms(0, 1)
-  const isMaxtermNotation =
-    /(?:^|[+\s,;*·&|~Π(])M\s*\(/i.test(trimmed) &&
-    !/(?:^|[+\s,;*·&|~Σ(])m\s*\(/i.test(trimmed.replace(/(?:^|[+\s,;*·&|~Π(])M\s*\([^)]*\)/gi, ''));
+  // Strip function header e.g. F(A, B, C, D) = or F = or f =
+  const withoutPrefix = trimmed.replace(/^[FfYy]\s*(?:\([^)]*\))?\s*=\s*/, '').trim();
 
-  if (isMaxtermNotation) {
-    const maxMatch = trimmed.match(/(?:M|maxterm[s]?)\s*\(\s*([0-9\s,]*)\s*\)/i);
-    const dMatch = trimmed.match(/d\s*\(\s*([0-9\s,]*)\s*\)/i);
+  // Case 1A: Minterm notation: e.g. m(0, 1, 3) or minterms(0, 1) or \sum m(...)
+  const hasMinterm =
+    /(?:^|[+\s,;*·&|~Σ(])(?:m\s*\(|minterm[s]?\s*\()/i.test(withoutPrefix) &&
+    !/(?:^|[+\s,;*·&|~Π(])M\s*\(/.test(withoutPrefix);
+
+  // Case 1B: Maxterm notation: e.g. M(0, 1, 3) or maxterms(0, 1) or \prod M(...)
+  const hasMaxterm =
+    (/(?:^|[+\s,;*·&|~Π(])M\s*\(/.test(withoutPrefix) ||
+      /(?:^|[+\s,;*·&|~Π(])maxterm[s]?\s*\(/i.test(withoutPrefix)) &&
+    !hasMinterm;
+
+  if (hasMaxterm) {
+    const maxMatch = withoutPrefix.match(/(?:M|maxterm[s]?)\s*\(\s*([0-9\s,]*)\s*\)/i);
+    const dMatch = withoutPrefix.match(/d\s*\(\s*([0-9\s,]*)\s*\)/i);
 
     let maxterms: number[] = [];
     let dontCares: number[] = [];
@@ -873,10 +882,9 @@ export function parseBooleanInput(
     };
   }
 
-  // Case 1B: Minterm notation like m(0, 1, 3, 7) + d(2, 6) or sum m(0,1,3)
-  if (trimmed.toLowerCase().includes('m(') || trimmed.toLowerCase().includes('d(')) {
-    const minMatch = trimmed.match(/m\s*\(\s*([0-9\s,]*)\s*\)/i);
-    const dMatch = trimmed.match(/d\s*\(\s*([0-9\s,]*)\s*\)/i);
+  if (hasMinterm || (!hasMaxterm && (withoutPrefix.toLowerCase().includes('m(') || withoutPrefix.toLowerCase().includes('d(')))) {
+    const minMatch = withoutPrefix.match(/(?:m|minterm[s]?)\s*\(\s*([0-9\s,]*)\s*\)/i);
+    const dMatch = withoutPrefix.match(/d\s*\(\s*([0-9\s,]*)\s*\)/i);
 
     let minterms: number[] = [];
     let dontCares: number[] = [];
@@ -902,8 +910,8 @@ export function parseBooleanInput(
   }
 
   // Case 2: Comma or space separated numbers (e.g. "0, 2, 5, 7, 8, 10")
-  if (/^[0-9\s,]+$/.test(trimmed)) {
-    const nums = trimmed
+  if (/^[0-9\s,]+$/.test(withoutPrefix)) {
+    const nums = withoutPrefix
       .split(/[\s,]+/)
       .map(s => parseInt(s.trim(), 10))
       .filter(n => !isNaN(n) && n >= 0 && n < maxCells);
@@ -914,7 +922,7 @@ export function parseBooleanInput(
     };
   }
 
-  // Case 3: Boolean algebraic expression (e.g. A'B + C'D or A B' + C D)
+  // Case 3: Boolean algebraic expression (e.g. A'B + C'D or (A + B')(C + D'))
   try {
     const minterms: number[] = [];
     const dontCares: number[] = [];
@@ -927,7 +935,7 @@ export function parseBooleanInput(
         env[variables[i]] = binary[i] === '1';
       }
 
-      const val = evaluateExpression(trimmed, env);
+      const val = evaluateBooleanAST(withoutPrefix, env);
       if (val) {
         minterms.push(m);
       }
@@ -949,61 +957,176 @@ export function parseBooleanInput(
 }
 
 /**
- * Simple recursive descent boolean expression evaluator
+ * Robust Recursive Descent Boolean Expression Evaluator
+ * Supports:
+ * - Arbitrary parenthesis nesting: (A + B')(C + D')
+ * - Juxtaposition / Implicit AND: AB, A(B+C), ) (
+ * - Standard Boolean symbols: + | ∨ (OR), * & · ∧ (AND), ^ ⊕ (XOR), ! ~ ¬ ' (NOT)
+ * - Constants 0 and 1
  */
-function evaluateExpression(expr: string, env: Record<string, boolean>): boolean {
-  // Normalize tokens: replace '~', '!' with NOT
-  // Replace '+', '|' with OR
-  // Replace '*', '&' with AND
-  // Handle implicit multiplication like AB or A'B
-  let cleaned = expr.replace(/\s+/g, '');
+function evaluateBooleanAST(expr: string, env: Record<string, boolean>): boolean {
+  let s = expr.trim();
+  // Strip function header
+  s = s.replace(/^[FfYy]\s*(?:\([^)]*\))?\s*=\s*/, '');
 
-  // Convert primed variables like A' to (!A)
-  for (const v of Object.keys(env)) {
-    const primeRegex = new RegExp(`${v}'`, 'g');
-    cleaned = cleaned.replace(primeRegex, `(!${v})`);
+  // Normalize common symbols
+  s = s.replace(/[·•*]/g, '&');
+  s = s.replace(/∧/g, '&');
+  s = s.replace(/∨/g, '|');
+  s = s.replace(/[¬~]/g, '!');
+  s = s.replace(/⊕/g, '^');
+
+  // Replace primed variables: for each variable in env, replace V' with (!V)
+  const varKeys = Object.keys(env).sort((a, b) => b.length - a.length);
+  for (const v of varKeys) {
+    const reg = new RegExp(v + "['’]", 'g');
+    s = s.replace(reg, `(!${v})`);
   }
 
-  // Insert explicit & between adjacent variables or brackets: A B -> A & B, ) ( -> ) & (, A( -> A & (
-  cleaned = cleaned.replace(/([A-Za-z0-9\)])(?=[A-Za-z\(|!])/g, (match, p1) => {
-    // avoid inserting & before operators + or |
-    return `${p1}&`;
-  });
-
-  // Replace + with |
-  cleaned = cleaned.replace(/\+/g, '|');
-
-  // Split by OR (|)
-  const orTerms = cleaned.split('|');
-  return orTerms.some(term => evaluateAndTerm(term, env));
-}
-
-function evaluateAndTerm(term: string, env: Record<string, boolean>): boolean {
-  const andFactors = term.split('&').filter(Boolean);
-  for (const factor of andFactors) {
-    let negated = false;
-    let token = factor;
-
-    while (token.startsWith('!') || token.startsWith('~')) {
-      negated = !negated;
-      token = token.slice(1);
-    }
-
-    // Strip outer parens
-    if (token.startsWith('(') && token.endsWith(')')) {
-      token = token.slice(1, -1);
-      const res = evaluateExpression(token, env);
-      if ((negated ? !res : res) === false) return false;
+  // Tokenize into: IDENT, '(', ')', '!', '&', '|', '^', '0', '1'
+  const rawTokens: string[] = [];
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (/\s/.test(ch)) {
+      i++;
       continue;
     }
-
-    const varVal = env[token];
-    if (varVal === undefined) {
-      throw new Error(`Unknown variable: "${token}"`);
+    if (
+      ch === '(' ||
+      ch === ')' ||
+      ch === '!' ||
+      ch === '&' ||
+      ch === '|' ||
+      ch === '^' ||
+      ch === '+' ||
+      ch === '0' ||
+      ch === '1'
+    ) {
+      rawTokens.push(ch === '+' ? '|' : ch);
+      i++;
+      continue;
     }
-
-    const res = negated ? !varVal : varVal;
-    if (!res) return false;
+    // Read identifier (variable name)
+    if (/[a-zA-Z_]/.test(ch)) {
+      let id = '';
+      while (i < s.length && /[a-zA-Z0-9_]/.test(s[i])) {
+        id += s[i];
+        i++;
+      }
+      rawTokens.push(id);
+      continue;
+    }
+    i++;
   }
-  return true;
+
+  // Insert implicit AND '&' between adjacent operands / parentheses
+  const tokens: string[] = [];
+  for (let k = 0; k < rawTokens.length; k++) {
+    const curr = rawTokens[k];
+    tokens.push(curr);
+    if (k + 1 < rawTokens.length) {
+      const next = rawTokens[k + 1];
+      const isCurrOperand =
+        curr === ')' || curr === '0' || curr === '1' || /^[a-zA-Z_]/.test(curr);
+      const isNextOperand =
+        next === '(' || next === '!' || next === '0' || next === '1' || /^[a-zA-Z_]/.test(next);
+      if (isCurrOperand && isNextOperand) {
+        tokens.push('&');
+      }
+    }
+  }
+
+  let pos = 0;
+  function peek(): string | null {
+    return pos < tokens.length ? tokens[pos] : null;
+  }
+  function consume(expected?: string): string {
+    const t = tokens[pos++];
+    if (expected && t !== expected) {
+      throw new Error(`Expected ${expected} but got ${t}`);
+    }
+    return t;
+  }
+
+  // Expr -> XorExpr ('|' XorExpr)*
+  function parseOr(): boolean {
+    let val = parseXor();
+    while (peek() === '|') {
+      consume('|');
+      const rhs = parseXor();
+      val = val || rhs;
+    }
+    return val;
+  }
+
+  // XorExpr -> AndExpr ('^' AndExpr)*
+  function parseXor(): boolean {
+    let val = parseAnd();
+    while (peek() === '^') {
+      consume('^');
+      const rhs = parseAnd();
+      val = (val && !rhs) || (!val && rhs);
+    }
+    return val;
+  }
+
+  // AndExpr -> NotExpr ('&' NotExpr)*
+  function parseAnd(): boolean {
+    let val = parseNot();
+    while (peek() === '&') {
+      consume('&');
+      const rhs = parseNot();
+      val = val && rhs;
+    }
+    return val;
+  }
+
+  // NotExpr -> '!'* Primary
+  function parseNot(): boolean {
+    let neg = false;
+    while (peek() === '!') {
+      consume('!');
+      neg = !neg;
+    }
+    const val = parsePrimary();
+    return neg ? !val : val;
+  }
+
+  // Primary -> '(' Expr ')' | IDENT | '0' | '1'
+  function parsePrimary(): boolean {
+    const t = peek();
+    if (!t) throw new Error('Unexpected end of expression');
+    if (t === '(') {
+      consume('(');
+      const val = parseOr();
+      consume(')');
+      return val;
+    }
+    if (t === '0') {
+      consume('0');
+      return false;
+    }
+    if (t === '1') {
+      consume('1');
+      return true;
+    }
+    consume();
+
+    // Match variable
+    if (env[t] !== undefined) {
+      return env[t];
+    }
+    const foundKey = Object.keys(env).find(k => k.toLowerCase() === t.toLowerCase());
+    if (foundKey !== undefined) {
+      return env[foundKey];
+    }
+    throw new Error(`Unknown variable: "${t}"`);
+  }
+
+  const result = parseOr();
+  if (pos < tokens.length) {
+    throw new Error(`Unexpected token: ${tokens[pos]}`);
+  }
+  return result;
 }

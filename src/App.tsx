@@ -9,6 +9,8 @@ import { StepByStepExplanation } from './components/StepByStepExplanation';
 import { ExportModal } from './components/ExportModal';
 import { QuizMode } from './components/QuizMode';
 import { PrintableWorksheet } from './components/PrintableWorksheet';
+import { Footer } from './components/Footer';
+import { ContactModal } from './components/ContactModal';
 import { PRESET_PROBLEMS } from './data/presets';
 import {
   Layers,
@@ -48,6 +50,7 @@ export default function App() {
   const [showMintermIndices, setShowMintermIndices] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'kmap' | 'steps' | 'truth-table'>('kmap');
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isPrintMode, setIsPrintMode] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [showDetailedSolution, setShowDetailedSolution] = useState(false);
@@ -208,7 +211,7 @@ export default function App() {
     : null;
 
   return (
-    <div className="min-h-screen lg:h-screen lg:max-h-screen w-full bg-slate-50 flex flex-col text-slate-900 font-sans antialiased overflow-x-hidden lg:overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen w-full bg-slate-50 flex flex-col text-slate-900 font-sans antialiased overflow-x-hidden selection:bg-indigo-100 selection:text-indigo-900">
       {/* Top Navbar */}
       <div className="shrink-0">
         <Navbar
@@ -230,14 +233,13 @@ export default function App() {
               return next;
             });
           }}
+          onOpenContact={() => setIsContactModalOpen(true)}
         />
       </div>
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 w-full max-w-[1720px] mx-auto px-2 sm:px-4 py-2.5 flex flex-col gap-3 pb-16 lg:pb-2 lg:min-h-0 ${
-          showQuiz && showDetailedSolution ? 'lg:overflow-y-auto' : 'lg:overflow-hidden'
-        }`}
+        className="w-full max-w-[1720px] mx-auto px-2 sm:px-4 py-3 flex flex-col gap-3.5 pb-8"
       >
         {/* Practice Quiz Section if opened */}
         {showQuiz && (
@@ -258,7 +260,7 @@ export default function App() {
 
         {/* When in Practice Mode and Solution is Hidden */}
         {showQuiz && !showDetailedSolution && (
-          <div className="flex-1 min-h-[260px] flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500 space-y-3">
+          <div className="min-h-[260px] flex flex-col items-center justify-center bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shadow-2xs">
               <Eye className="w-6 h-6" />
             </div>
@@ -355,7 +357,7 @@ export default function App() {
                 <button
                   id="quick-export-modal-btn"
                   onClick={() => setIsExportModalOpen(true)}
-                  className="p-1 text-slate-500 hover:text-indigo-600 rounded transition-colors flex items-center gap-1 text-xs font-semibold shrink-0"
+                  className="p-1 text-slate-500 hover:text-indigo-600 rounded transition-colors flex items-center gap-1 text-xs font-semibold shrink-0 cursor-pointer"
                   title="Copy LaTeX & TikZ"
                 >
                   <Share2 className="w-3.5 h-3.5 text-indigo-600" />
@@ -366,15 +368,9 @@ export default function App() {
 
             {/* Tab Content Panels */}
             {activeTab === 'kmap' && (
-              <div
-                className={`grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-2.5 ${
-                  showQuiz && showDetailedSolution
-                    ? 'min-h-[580px] pb-6'
-                    : 'flex-1 lg:min-h-0 lg:h-full pb-6 lg:pb-0'
-                }`}
-              >
-                {/* Left Visualizer (5 cols on desktop, responsive comfortable height on mobile) */}
-                <div className="lg:col-span-5 min-h-[430px] sm:min-h-[470px] lg:h-full lg:min-h-0 flex flex-col overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+                {/* Left Visualizer */}
+                <div className="lg:col-span-5 min-h-[480px] sm:min-h-[520px] flex flex-col">
                   <KMapVisualizer
                     result={solverResult}
                     cellValues={cellValues}
@@ -386,8 +382,8 @@ export default function App() {
                   />
                 </div>
 
-                {/* Right Panel (7 cols on desktop, full scrollable step-by-step on mobile) */}
-                <div className="lg:col-span-7 min-h-[460px] sm:min-h-[500px] lg:h-full lg:min-h-0 flex flex-col overflow-hidden">
+                {/* Right Panel */}
+                <div className="lg:col-span-7 min-h-[500px] flex flex-col">
                   <StepByStepExplanation
                     result={solverResult}
                     hoveredImplicantId={hoveredImplicantId}
@@ -398,11 +394,7 @@ export default function App() {
             )}
 
             {activeTab === 'steps' && (
-              <div
-                className={`max-w-5xl w-full mx-auto ${
-                  showQuiz && showDetailedSolution ? 'min-h-[500px] pb-6' : 'flex-1 min-h-[480px] lg:min-h-0 lg:h-full'
-                }`}
-              >
+              <div className="max-w-5xl w-full mx-auto min-h-[500px]">
                 <StepByStepExplanation
                   result={solverResult}
                   hoveredImplicantId={hoveredImplicantId}
@@ -412,7 +404,7 @@ export default function App() {
             )}
 
             {activeTab === 'truth-table' && (
-              <div className="flex-1 min-h-[480px] lg:min-h-0 max-w-4xl w-full mx-auto lg:h-full overflow-y-auto">
+              <div className="min-h-[500px] max-w-4xl w-full mx-auto">
                 <TruthTable
                   varCount={varCount}
                   variables={variables}
@@ -426,12 +418,21 @@ export default function App() {
         )}
       </main>
 
+      {/* Institutional Footer */}
+      <Footer onOpenQueryModal={() => setIsContactModalOpen(true)} />
+
       {/* Export Modal */}
       <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         result={solverResult}
         cellValues={cellValues}
+      />
+
+      {/* Contact & Query Modal */}
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
       />
     </div>
   );

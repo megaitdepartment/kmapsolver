@@ -11,6 +11,8 @@ import {
   X,
   Sparkles,
   BookOpen,
+  MessageSquareQuote,
+  GraduationCap
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -26,6 +28,7 @@ interface NavbarProps {
   isPrintMode: boolean;
   showQuiz: boolean;
   onToggleQuiz: () => void;
+  onOpenContact?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -41,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   isPrintMode,
   showQuiz,
   onToggleQuiz,
+  onOpenContact,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -168,6 +172,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Share2 className="w-3.5 h-3.5 text-indigo-300" />
               <span>Export</span>
             </button>
+
+            {onOpenContact && (
+              <button
+                id="navbar-contact-btn"
+                onClick={onOpenContact}
+                className="px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-800 text-xs font-semibold transition-colors flex items-center gap-1.5"
+                title="Contact Mega IT Dept / Send Feedback"
+              >
+                <MessageSquareQuote className="w-4 h-4 text-indigo-600" />
+                <span className="hidden xl:inline">Mega IT Queries</span>
+                <span className="xl:hidden">Queries</span>
+              </button>
+            )}
 
             <button
               id="reset-kmap-btn"
@@ -422,6 +439,28 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </p>
                 </div>
               </button>
+
+              {/* Contact & Queries */}
+              {onOpenContact && (
+                <button
+                  id="mobile-drawer-contact-btn"
+                  onClick={() => {
+                    onOpenContact();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="p-3 rounded-xl border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-slate-800 text-left flex items-start gap-3 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                    <MessageSquareQuote className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-indigo-950">Mega IT & Queries</div>
+                    <p className="text-[11px] text-indigo-700 mt-0.5">
+                      Contact Mega National College IT Department & submit questions
+                    </p>
+                  </div>
+                </button>
+              )}
 
               {/* Reset Clear All */}
               <button

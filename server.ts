@@ -21,6 +21,62 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Contact & Query submission endpoint (routed to megaitdepartment@gmail.com)
+  const inquiries: Array<{
+    id: string;
+    timestamp: string;
+    name: string;
+    email: string;
+    phone?: string;
+    category: string;
+    subject: string;
+    message: string;
+    targetEmail: string;
+  }> = [];
+
+  app.post("/api/contact", (req, res) => {
+    try {
+      const { name, email, phone, category = "General Query", subject, message } = req.body;
+
+      if (!name || !email || !message) {
+        return res.status(400).json({
+          success: false,
+          error: "Name, email, and message are required fields."
+        });
+      }
+
+      const newInquiry = {
+        id: `inq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        timestamp: new Date().toISOString(),
+        name: String(name).trim(),
+        email: String(email).trim(),
+        phone: phone ? String(phone).trim() : undefined,
+        category: String(category).trim(),
+        subject: subject ? String(subject).trim() : `Inquiry from ${name}`,
+        message: String(message).trim(),
+        targetEmail: "megaitdepartment@gmail.com"
+      };
+
+      inquiries.unshift(newInquiry);
+      console.log(`[Mega College IT Dept] New inquiry from ${newInquiry.name} <${newInquiry.email}>: ${newInquiry.subject} (routed to megaitdepartment@gmail.com)`);
+
+      res.status(200).json({
+        success: true,
+        message: "Your query / feedback has been received and routed to the Mega IT Department (megaitdepartment@gmail.com).",
+        inquiryId: newInquiry.id,
+        timestamp: newInquiry.timestamp,
+        targetEmail: "megaitdepartment@gmail.com"
+      });
+    } catch (err) {
+      console.error("Error processing inquiry:", err);
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/contact/latest", (req, res) => {
+    res.json({ count: inquiries.length, recent: inquiries.slice(0, 5) });
+  });
+
   // Vite middleware for development
   if (isDev) {
     const vite = await createViteServer({
