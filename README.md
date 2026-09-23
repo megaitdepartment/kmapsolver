@@ -75,8 +75,6 @@ RECIPIENT_EMAIL=megaitdepartment@gmail.com
 # Add your SMTP provider details if using automated server routing
 
 ```
-
-
 4. **Run the Development Server:**
 ```bash
 npm run dev
@@ -85,6 +83,7 @@ npm run dev
 
 
 Open `http://localhost:5173` (or the port specified in your console) to view the application in your browser.
+
 5. **Build for Production:**
 ```bash
 npm run build
