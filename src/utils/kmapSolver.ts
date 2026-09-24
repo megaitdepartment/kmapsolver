@@ -222,9 +222,9 @@ export function patternToTerms(
   if (sopParts.length === 0) {
     return {
       sop: '1',
-      pos: '1',
+      pos: '0',
       latexSop: '1',
-      latexPos: '1',
+      latexPos: '0',
       constantVars: [],
       canceledVars,
     };
@@ -299,7 +299,49 @@ export function generatePrimeImplicants(
   varCount: VariableCount,
   variables: string[]
 ): Implicant[] {
-  if (activeIndices.length === 0) return [];
+  if (activeIndices.length === 0 || targetIndices.length === 0) return [];
+
+  const maxCells = 1 << varCount;
+  // Fast path for all cells covered
+  if (activeIndices.length === maxCells && targetIndices.length > 0) {
+    const pattern = '-'.repeat(varCount);
+    const termMeta = patternToTerms(pattern, variables);
+    const palette = PALETTE[0];
+    const allCovered = Array.from({ length: maxCells }, (_, i) => i);
+    const cells = allCovered.map(m => {
+      const coord = getCoordFromMinterm(m, varCount);
+      return {
+        minterm: m,
+        row: coord.row,
+        col: coord.col,
+        subMap: coord.subMap,
+      };
+    });
+
+    return [
+      {
+        id: `pi-${pattern}`,
+        minterms: targetIndices,
+        dontCares: allCovered.filter(m => !targetIndices.includes(m)),
+        binaryPattern: pattern,
+        termString: termMeta.sop,
+        posTermString: termMeta.pos,
+        latexTerm: termMeta.latexSop,
+        latexPosTerm: termMeta.latexPos,
+        isEssential: true,
+        color: palette.border,
+        borderColor: palette.border,
+        fillColor: palette.fill,
+        size: allCovered.length,
+        cells,
+        explanation: {
+          constantVars: [],
+          canceledVars: [...variables],
+          description: `Entire map is covered (all ${maxCells} cells). All variables cancel out (X + X' = 1, X · X' = 0).`,
+        },
+      },
+    ];
+  }
 
   // Group minterms by number of 1s
   type GroupTerm = {
@@ -596,69 +638,10 @@ export function solveKMap(
     type: 'setup',
   });
 
-  // Tautology check (all 1s)
-  if (sanitizedMinterms.length + sanitizedDontCares.length === maxCells && sanitizedMinterms.length > 0) {
-    steps.push({
-      stepNumber: 2,
-      title: 'Tautology Simplification',
-      description: 'All cells in the Karnaugh map are populated with 1s or don\'t-cares.',
-      details: 'A single group of size ' + maxCells + ' covers the entire map. Output is logically constant 1.',
-      type: 'simplification',
-    });
-
-    return {
-      variableCount: varCount,
-      variables,
-      form,
-      minterms: sanitizedMinterms,
-      maxterms,
-      dontCares: sanitizedDontCares,
-      allPrimeImplicants: [],
-      essentialPrimeImplicants: [],
-      selectedPrimeImplicants: [],
-      minimalEquation: 'F = 1',
-      latexEquation: 'F = 1',
-      minimalPosEquation: 'F = 1',
-      latexPosEquation: 'F = 1',
-      alternativeSolutions: [],
-      piChart: { minterms: sanitizedMinterms, rows: [] },
-      steps,
-      isTautology: true,
-      isContradiction: false,
-    };
-  }
-
-  // Contradiction check (all 0s)
-  if (sanitizedMinterms.length === 0) {
-    steps.push({
-      stepNumber: 2,
-      title: 'Contradiction Simplification',
-      description: 'No minterm is asserted in the Karnaugh map (all cells are 0 or don\'t-cares).',
-      details: 'Output is logically constant 0.',
-      type: 'simplification',
-    });
-
-    return {
-      variableCount: varCount,
-      variables,
-      form,
-      minterms: sanitizedMinterms,
-      maxterms,
-      dontCares: sanitizedDontCares,
-      allPrimeImplicants: [],
-      essentialPrimeImplicants: [],
-      selectedPrimeImplicants: [],
-      minimalEquation: 'F = 0',
-      latexEquation: 'F = 0',
-      minimalPosEquation: 'F = 0',
-      latexPosEquation: 'F = 0',
-      alternativeSolutions: [],
-      piChart: { minterms: sanitizedMinterms, rows: [] },
-      steps,
-      isTautology: false,
-      isContradiction: true,
-    };
-  }
+  const isTautology =
+    (sanitizedMinterms.length + sanitizedDontCares.length === maxCells && sanitizedMinterms.length > 0) ||
+    sanitizedMinterms.length === maxCells;
+  const isContradiction = sanitizedMinterms.length === 0;
 
   // Step 2 & 3: Find Prime Implicants
   // For SOP: active = minterms + dontCares; target = minterms
@@ -673,21 +656,57 @@ export function solveKMap(
   const primeImplicants = form === 'SOP' ? sopPrimeImplicants : posPrimeImplicants;
   const targetIndices = form === 'SOP' ? sanitizedMinterms : maxterms;
 
-  steps.push({
-    stepNumber: 2,
-    title: 'Adjacency Grouping & Prime Implicant Generation',
-    description: `Formed all valid rectangular groupings of powers of 2 (sizes 16, 8, 4, 2, 1) using wrap-around edge and corner adjacencies. Found ${primeImplicants.length} prime implicant(s).`,
-    details: primeImplicants
-      .map(
-        (pi, idx) =>
-          `PI ${idx + 1}: ${form === 'SOP' ? pi.termString : pi.posTermString} covering cells {${pi.minterms.join(
-            ', '
-          )}${pi.dontCares.length ? ` + d(${pi.dontCares.join(', ')})` : ''}}`
-      )
-      .join('\n'),
-    implicantsHighlighted: primeImplicants.map(pi => pi.id),
-    type: 'grouping',
-  });
+  if (isTautology && form === 'SOP') {
+    steps.push({
+      stepNumber: 2,
+      title: 'Tautology Simplification',
+      description: `All ${maxCells} cells in the Karnaugh map are covered by 1s (or don't-cares).`,
+      details: `A single group of size ${maxCells} covers the entire map. All ${varCount} variables cancel out (X + X' = 1). Minimal output is constant 1.`,
+      implicantsHighlighted: primeImplicants.map(pi => pi.id),
+      type: 'simplification',
+    });
+  } else if (isContradiction && form === 'POS') {
+    steps.push({
+      stepNumber: 2,
+      title: 'Contradiction Simplification (POS)',
+      description: `All ${maxCells} cells in the Karnaugh map are 0s (maxterms).`,
+      details: `A single group of size ${maxCells} covers all maxterms. All ${varCount} variables cancel out (X · X' = 0). Minimal output is constant 0.`,
+      implicantsHighlighted: primeImplicants.map(pi => pi.id),
+      type: 'simplification',
+    });
+  } else if (isContradiction && form === 'SOP') {
+    steps.push({
+      stepNumber: 2,
+      title: 'Contradiction Simplification (SOP)',
+      description: "No minterm is asserted in the Karnaugh map (all cells are 0 or don't-cares).",
+      details: 'No 1s exist to group. Output is logically constant 0.',
+      type: 'simplification',
+    });
+  } else if (isTautology && form === 'POS') {
+    steps.push({
+      stepNumber: 2,
+      title: 'Tautology Simplification (POS)',
+      description: "No maxterm is asserted in the Karnaugh map (all cells are 1 or don't-cares).",
+      details: 'No 0s exist to group. Output is logically constant 1.',
+      type: 'simplification',
+    });
+  } else {
+    steps.push({
+      stepNumber: 2,
+      title: 'Adjacency Grouping & Prime Implicant Generation',
+      description: `Formed all valid rectangular groupings of powers of 2 (sizes 64, 32, 16, 8, 4, 2, 1) using wrap-around edge and corner adjacencies. Found ${primeImplicants.length} prime implicant(s).`,
+      details: primeImplicants
+        .map(
+          (pi, idx) =>
+            `PI ${idx + 1}: ${form === 'SOP' ? pi.termString : pi.posTermString} covering cells {${pi.minterms.join(
+              ', '
+            )}${pi.dontCares.length ? ` + d(${pi.dontCares.join(', ')})` : ''}}`
+        )
+        .join('\n'),
+      implicantsHighlighted: primeImplicants.map(pi => pi.id),
+      type: 'grouping',
+    });
+  }
 
   // Step 4 & 5: Set Cover & Prime Implicant Table
   const { essentialPIs, allMinimalSolutions } = solveSetCover(targetIndices, primeImplicants);
@@ -758,27 +777,35 @@ export function solveKMap(
   let latexPosEquation = '';
 
   if (form === 'SOP') {
-    minimalEquation = `F = ${selectedPIs.map(pi => pi.termString).join(' + ')}`;
-    latexEquation = `F = ${selectedPIs.map(pi => pi.latexTerm).join(' + ')}`;
+    minimalEquation = selectedPIs.length > 0 ? `F = ${selectedPIs.map(pi => pi.termString).join(' + ')}` : 'F = 0';
+    latexEquation = selectedPIs.length > 0 ? `F = ${selectedPIs.map(pi => pi.latexTerm).join(' + ')}` : 'F = 0';
     // Also compute POS equivalent for comparison
     const posCover = solveSetCover(maxterms, posPrimeImplicants);
     const posSelected = posCover.allMinimalSolutions[0] || [];
-    minimalPosEquation = `F = ${posSelected.map(pi => pi.posTermString).join(' ')}`;
-    latexPosEquation = `F = ${posSelected.map(pi => pi.latexPosTerm).join(' ')}`;
+    minimalPosEquation =
+      posSelected.length > 0 ? `F = ${posSelected.map(pi => pi.posTermString).join(' ')}` : isTautology ? 'F = 1' : 'F = 0';
+    latexPosEquation =
+      posSelected.length > 0 ? `F = ${posSelected.map(pi => pi.latexPosTerm).join(' ')}` : isTautology ? 'F = 1' : 'F = 0';
   } else {
-    minimalPosEquation = `F = ${selectedPIs.map(pi => pi.posTermString).join(' ')}`;
-    latexPosEquation = `F = ${selectedPIs.map(pi => pi.latexPosTerm).join(' ')}`;
+    minimalPosEquation = selectedPIs.length > 0 ? `F = ${selectedPIs.map(pi => pi.posTermString).join(' ')}` : 'F = 1';
+    latexPosEquation = selectedPIs.length > 0 ? `F = ${selectedPIs.map(pi => pi.latexPosTerm).join(' ')}` : 'F = 1';
     // Also compute SOP equivalent
     const sopCover = solveSetCover(sanitizedMinterms, sopPrimeImplicants);
     const sopSelected = sopCover.allMinimalSolutions[0] || [];
-    minimalEquation = `F = ${sopSelected.map(pi => pi.termString).join(' + ')}`;
-    latexEquation = `F = ${sopSelected.map(pi => pi.latexTerm).join(' + ')}`;
+    minimalEquation =
+      sopSelected.length > 0 ? `F = ${sopSelected.map(pi => pi.termString).join(' + ')}` : isContradiction || maxterms.length === maxCells ? 'F = 0' : 'F = 1';
+    latexEquation =
+      sopSelected.length > 0 ? `F = ${sopSelected.map(pi => pi.latexTerm).join(' + ')}` : isContradiction || maxterms.length === maxCells ? 'F = 0' : 'F = 1';
   }
 
   // Alternative solutions
   const alternativeSolutions: AlternativeSolution[] = allMinimalSolutions.map(sol => {
-    const eq = form === 'SOP' ? `F = ${sol.map(pi => pi.termString).join(' + ')}` : `F = ${sol.map(pi => pi.posTermString).join(' ')}`;
-    const ltx = form === 'SOP' ? `F = ${sol.map(pi => pi.latexTerm).join(' + ')}` : `F = ${sol.map(pi => pi.latexPosTerm).join(' ')}`;
+    const eq = form === 'SOP'
+      ? sol.length > 0 ? `F = ${sol.map(pi => pi.termString).join(' + ')}` : 'F = 0'
+      : sol.length > 0 ? `F = ${sol.map(pi => pi.posTermString).join(' ')}` : 'F = 1';
+    const ltx = form === 'SOP'
+      ? sol.length > 0 ? `F = ${sol.map(pi => pi.latexTerm).join(' + ')}` : 'F = 0'
+      : sol.length > 0 ? `F = ${sol.map(pi => pi.latexPosTerm).join(' ')}` : 'F = 1';
     return {
       implicantIds: sol.map(pi => pi.id),
       equation: eq,
@@ -807,8 +834,8 @@ export function solveKMap(
       rows: piChartRows,
     },
     steps,
-    isTautology: false,
-    isContradiction: false,
+    isTautology,
+    isContradiction,
   };
 }
 
